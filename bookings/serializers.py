@@ -96,6 +96,18 @@ class AdminBookingListSerializer(serializers.ModelSerializer):
             "first_name": obj.requester.first_name,
             "last_name": obj.requester.last_name,
         }
+
+
 class AdminDecisionSerializer(serializers.Serializer):
-    decision_note = serializers.CharField(required=False, allow_blank=True, default="")
-    
+    decision_note = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+
+
+class AdminCancelSerializer(serializers.Serializer):
+    reason = serializers.CharField(
+        allow_blank=False,
+        trim_whitespace=True,
+    )

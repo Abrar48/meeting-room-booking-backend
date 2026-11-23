@@ -12,6 +12,7 @@ from accounts.permissions import requireAdmin, requireAuth
 from bookings.models import Booking, BookingAuditLog
 from bookings.serializers import (
     AdminBookingListSerializer,
+    AdminCancelSerializer,
     AdminDecisionSerializer,
     AdminScheduleBookingSerializer,
     BookingCreateSerializer,
@@ -73,9 +74,15 @@ class ScheduleListView(APIView):
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
-        range_start = datetime.combine(start_date, time.min, tzinfo=dt_timezone.utc)
+        range_start = datetime.combine(
+            start_date,
+            time.min,
+            tzinfo=dt_timezone.utc,
+        )
         range_end = datetime.combine(
-            end_date + timedelta(days=1), time.min, tzinfo=dt_timezone.utc
+            end_date + timedelta(days=1),
+            time.min,
+            tzinfo=dt_timezone.utc,
         )
 
         confirmed_bookings = (
@@ -93,14 +100,19 @@ class ScheduleListView(APIView):
             if (request.user and request.user.is_authenticated)
             else getattr(request, "current_user", None)
         )
-        is_admin = bool(active_user and active_user.role == User.Role.ADMIN)
+        is_admin = bool(
+            active_user and active_user.role == User.Role.ADMIN
+        )
 
         serializer_class = (
             AdminScheduleBookingSerializer
             if is_admin
             else PublicScheduleBookingSerializer
         )
-        serialized_bookings = serializer_class(confirmed_bookings, many=True).data
+        serialized_bookings = serializer_class(
+            confirmed_bookings,
+            many=True,
+        ).data
 
         return api_response(
             status_text="success",
@@ -119,7 +131,7 @@ class BookingListCreateView(APIView):
     """
     POST /api/bookings/
     Allows an authenticated team member to submit a new booking request.
-    Validates time range and overlap against APPROVED bookings, saving as PENDING.
+    Validates time range and overlap against APPROVED bookings.
     """
 
     permission_classes = [requireAuth]
@@ -158,7 +170,10 @@ class BookingListCreateView(APIView):
         start_utc = ensure_aware_utc(validated["start_time"])
         end_utc = ensure_aware_utc(validated["end_time"])
 
-        validate_booking_slot(start_time=start_utc, end_time=end_utc)
+        validate_booking_slot(
+            start_time=start_utc,
+            end_time=end_utc,
+        )
 
         booking = Booking.objects.create(
             team=user.team,
@@ -182,8 +197,7 @@ class BookingListCreateView(APIView):
 class MyTeamRequestsView(APIView):
     """
     GET /api/bookings/my-requests
-    Returns all booking requests belonging strictly to the signed-in user's team,
-    including status and decision_note, without exposing other teams' requests.
+    Returns booking requests belonging to the signed-in user's team.
     """
 
     permission_classes = [requireAuth]
@@ -208,7 +222,9 @@ class MyTeamRequestsView(APIView):
         status_param = request.query_params.get("status")
         if status_param:
             status_upper = status_param.strip().upper()
-            valid_statuses = {choice[0] for choice in Booking.Status.choices}
+            valid_statuses = {
+                choice[0] for choice in Booking.Status.choices
+            }
             if status_upper not in valid_statuses:
                 allowed = ", ".join(sorted(valid_statuses))
                 return api_response(
@@ -219,7 +235,10 @@ class MyTeamRequestsView(APIView):
                 )
             queryset = queryset.filter(status=status_upper)
 
-        serialized_requests = BookingDetailSerializer(queryset, many=True).data
+        serialized_requests = BookingDetailSerializer(
+            queryset,
+            many=True,
+        ).data
 
         return api_response(
             status_text="success",
@@ -237,8 +256,7 @@ class MyTeamRequestsView(APIView):
 class CancelOwnPendingBookingView(APIView):
     """
     PATCH /api/bookings/<id>/cancel
-    Allows a team member to cancel their own booking request only if status is PENDING.
-    Returns 403 if not the requester, and 400 if status is not PENDING.
+    Allows a user to cancel their own PENDING booking request.
     """
 
     permission_classes = [requireAuth]
@@ -272,7 +290,7 @@ class CancelOwnPendingBookingView(APIView):
             return api_response(
                 status_text="error",
                 message=(
-                    f"Only PENDING booking requests can be cancelled. "
+                    "Only PENDING booking requests can be cancelled. "
                     f"Current status is {booking.status}."
                 ),
                 data={},
@@ -294,21 +312,23 @@ class CancelOwnPendingBookingView(APIView):
 class AdminBookingListView(APIView):
     """
     GET /api/admin/bookings
-    Admin-only endpoint to list all booking requests and confirmed bookings
-    with optional filters for status, date range (start_date, end_date), and team.
+    Admin-only booking list with optional status, date, and team filters.
     """
 
     permission_classes = [requireAdmin]
 
     def get(self, request):
-        queryset = Booking.objects.select_related("team", "requester").order_by(
-            "-created_at"
+        queryset = (
+            Booking.objects.select_related("team", "requester")
+            .order_by("-created_at")
         )
 
         status_param = request.query_params.get("status")
         if status_param:
             status_upper = status_param.strip().upper()
-            valid_statuses = {choice[0] for choice in Booking.Status.choices}
+            valid_statuses = {
+                choice[0] for choice in Booking.Status.choices
+            }
             if status_upper not in valid_statuses:
                 allowed = ", ".join(sorted(valid_statuses))
                 return api_response(
@@ -319,8 +339,9 @@ class AdminBookingListView(APIView):
                 )
             queryset = queryset.filter(status=status_upper)
 
-        team_param = request.query_params.get("team_id") or request.query_params.get(
-            "team"
+        team_param = (
+            request.query_params.get("team_id")
+            or request.query_params.get("team")
         )
         if team_param:
             if not team_param.isdigit():
@@ -366,16 +387,25 @@ class AdminBookingListView(APIView):
             )
 
         if start_date:
-            range_start = datetime.combine(start_date, time.min, tzinfo=dt_timezone.utc)
+            range_start = datetime.combine(
+                start_date,
+                time.min,
+                tzinfo=dt_timezone.utc,
+            )
             queryset = queryset.filter(end_time__gt=range_start)
 
         if end_date:
             range_end = datetime.combine(
-                end_date + timedelta(days=1), time.min, tzinfo=dt_timezone.utc
+                end_date + timedelta(days=1),
+                time.min,
+                tzinfo=dt_timezone.utc,
             )
             queryset = queryset.filter(start_time__lt=range_end)
 
-        serialized = AdminBookingListSerializer(queryset, many=True).data
+        serialized = AdminBookingListSerializer(
+            queryset,
+            many=True,
+        ).data
 
         return api_response(
             status_text="success",
@@ -391,8 +421,7 @@ class AdminBookingListView(APIView):
 class AdminApproveBookingView(APIView):
     """
     PATCH /api/admin/bookings/<id>/approve
-    Admin-only endpoint using a DB transaction and row-level locks to re-verify
-    no overlapping APPROVED booking exists, update status to APPROVED, and log audit.
+    Admin approves PENDING booking with overlap revalidation and audit log.
     """
 
     permission_classes = [requireAdmin]
@@ -427,7 +456,7 @@ class AdminApproveBookingView(APIView):
             return api_response(
                 status_text="error",
                 message=(
-                    f"Only PENDING booking requests can be approved. "
+                    "Only PENDING booking requests can be approved. "
                     f"Current status is {booking.status}."
                 ),
                 data={},
@@ -451,12 +480,18 @@ class AdminApproveBookingView(APIView):
             )
 
         previous_status = booking.status
-        decision_note = serializer.validated_data.get("decision_note", "").strip()
+        decision_note = serializer.validated_data.get(
+            "decision_note",
+            "",
+        ).strip()
 
         booking.status = Booking.Status.APPROVED
         if decision_note:
             booking.decision_note = decision_note
-        booking.save(update_fields=["status", "decision_note", "updated_at"])
+
+        booking.save(
+            update_fields=["status", "decision_note", "updated_at"]
+        )
 
         BookingAuditLog.objects.create(
             booking=booking,
@@ -479,8 +514,7 @@ class AdminApproveBookingView(APIView):
 class AdminRejectBookingView(APIView):
     """
     PATCH /api/admin/bookings/<id>/reject
-    Admin-only endpoint to reject a PENDING booking request, store optional
-    decision notes, and write an entry to BookingAuditLog.
+    Admin rejects a PENDING booking and creates an audit log.
     """
 
     permission_classes = [requireAdmin]
@@ -515,7 +549,7 @@ class AdminRejectBookingView(APIView):
             return api_response(
                 status_text="error",
                 message=(
-                    f"Only PENDING booking requests can be rejected. "
+                    "Only PENDING booking requests can be rejected. "
                     f"Current status is {booking.status}."
                 ),
                 data={},
@@ -523,12 +557,18 @@ class AdminRejectBookingView(APIView):
             )
 
         previous_status = booking.status
-        decision_note = serializer.validated_data.get("decision_note", "").strip()
+        decision_note = serializer.validated_data.get(
+            "decision_note",
+            "",
+        ).strip()
 
         booking.status = Booking.Status.REJECTED
         if decision_note:
             booking.decision_note = decision_note
-        booking.save(update_fields=["status", "decision_note", "updated_at"])
+
+        booking.save(
+            update_fields=["status", "decision_note", "updated_at"]
+        )
 
         BookingAuditLog.objects.create(
             booking=booking,
@@ -543,6 +583,84 @@ class AdminRejectBookingView(APIView):
         return api_response(
             status_text="success",
             message="Booking request rejected successfully.",
+            data={"booking": response_data},
+            status_code=status.HTTP_200_OK,
+        )
+
+
+class AdminCancelBookingView(APIView):
+    """
+    PATCH /api/admin/bookings/<id>/admin-cancel
+    Admin cancels an APPROVED booking with a required cancellation reason.
+    """
+
+    permission_classes = [requireAdmin]
+
+    @transaction.atomic
+    def patch(self, request, booking_id: int):
+        serializer = AdminCancelSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return api_response(
+                status_text="error",
+                message="Validation failed.",
+                data=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        booking = (
+            Booking.objects.select_for_update()
+            .select_related("team", "requester")
+            .filter(id=booking_id)
+            .first()
+        )
+
+        if booking is None:
+            return api_response(
+                status_text="error",
+                message="Booking not found.",
+                data={},
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+
+        if booking.status != Booking.Status.APPROVED:
+            return api_response(
+                status_text="error",
+                message=(
+                    "Only APPROVED bookings can be cancelled by an admin. "
+                    f"Current status is {booking.status}."
+                ),
+                data={},
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        reason = serializer.validated_data["reason"].strip()
+        previous_status = booking.status
+
+        booking.status = Booking.Status.CANCELLED
+        booking.decision_note = reason
+
+        booking.save(
+            update_fields=["status", "decision_note", "updated_at"]
+        )
+
+        BookingAuditLog.objects.create(
+            booking=booking,
+            actor=request.user,
+            action=BookingAuditLog.Action.CANCELLED,
+            previous_status=previous_status,
+            new_status=Booking.Status.CANCELLED,
+            reason=reason,
+        )
+
+        response_data = AdminBookingListSerializer(booking).data
+
+        return api_response(
+            status_text="success",
+            message=(
+                "Confirmed booking cancelled successfully. "
+                "The slot is now available."
+            ),
             data={"booking": response_data},
             status_code=status.HTTP_200_OK,
         )
