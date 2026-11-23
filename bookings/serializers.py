@@ -111,3 +111,16 @@ class AdminCancelSerializer(serializers.Serializer):
         allow_blank=False,
         trim_whitespace=True,
     )
+
+
+class AdminReassignSerializer(serializers.Serializer):
+    target_booking_id = serializers.IntegerField(min_value=1)
+    reason = serializers.CharField(
+        allow_blank=False,
+        trim_whitespace=True,
+    )
+    decision_note = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+    )

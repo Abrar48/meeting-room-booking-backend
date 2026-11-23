@@ -1,5 +1,6 @@
 from django.urls import path
 
+from bookings.reassign_views import AdminReassignBookingView
 from bookings.views import (
     AdminApproveBookingView,
     AdminBookingListView,
@@ -47,5 +48,15 @@ urlpatterns = [
         "bookings/<int:booking_id>/reject",
         AdminRejectBookingView.as_view(),
         name="admin-booking-reject-no-slash",
+    ),
+    path(
+        "bookings/<int:booking_id>/reassign/",
+        AdminReassignBookingView.as_view(),
+        name="admin-booking-reassign",
+    ),
+    path(
+        "bookings/<int:booking_id>/reassign",
+        AdminReassignBookingView.as_view(),
+        name="admin-booking-reassign-no-slash",
     ),
 ]
