@@ -4,10 +4,9 @@ from rest_framework.exceptions import (
     AuthenticationFailed,
     NotAuthenticated,
     PermissionDenied,
+    ValidationError,
 )
 from rest_framework.views import exception_handler
-
-from core.responses import api_response
 
 
 class InvalidTimeRangeError(APIException):
@@ -22,35 +21,59 @@ class BookingConflictError(APIException):
     default_code = "booking_conflict"
 
 
+ERROR_MESSAGES = {
+    status.HTTP_400_BAD_REQUEST: "Validation failed.",
+    status.HTTP_401_UNAUTHORIZED: (
+        "Authentication credentials were not provided or are invalid."
+    ),
+    status.HTTP_403_FORBIDDEN: (
+        "You do not have permission to perform this action."
+    ),
+    status.HTTP_404_NOT_FOUND: "Resource not found.",
+    status.HTTP_405_METHOD_NOT_ALLOWED: "Method not allowed.",
+    status.HTTP_409_CONFLICT: "Booking schedule conflict.",
+    status.HTTP_415_UNSUPPORTED_MEDIA_TYPE: "Unsupported media type.",
+    status.HTTP_429_TOO_MANY_REQUESTS: "Too many requests.",
+}
+
+
 def custom_exception_handler(exc, context):
     response = exception_handler(exc, context)
 
-    if response is not None:
-        if isinstance(exc, (NotAuthenticated, AuthenticationFailed)):
-            return api_response(
-                status_text="error",
-                message="Authentication credentials were not provided or are invalid.",
-                data={},
-                status_code=status.HTTP_401_UNAUTHORIZED,
-            )
+    if response is None:
+        return None
 
-        if isinstance(exc, PermissionDenied):
-            return api_response(
-                status_text="error",
-                message="You do not have permission to perform this action.",
-                data={},
-                status_code=status.HTTP_403_FORBIDDEN,
-            )
+    error_data = response.data
 
-        message = "Request failed."
-        if isinstance(response.data, dict) and "detail" in response.data:
-            message = str(response.data["detail"])
+    message = ERROR_MESSAGES.get(
+        response.status_code,
+        "Request failed.",
+    )
 
-        return api_response(
-            status_text="error",
-            message=message,
-            data=response.data if isinstance(response.data, dict) else {},
-            status_code=response.status_code,
-        )
+    if isinstance(error_data, dict) and "detail" in error_data:
+        message = str(error_data["detail"])
+
+    if isinstance(exc, ValidationError):
+        message = "Validation failed."
+
+    elif isinstance(exc, (NotAuthenticated, AuthenticationFailed)):
+        message = ERROR_MESSAGES[status.HTTP_401_UNAUTHORIZED]
+        error_data = {}
+
+    elif isinstance(exc, PermissionDenied):
+        message = ERROR_MESSAGES[status.HTTP_403_FORBIDDEN]
+        error_data = {}
+
+    if isinstance(error_data, list):
+        error_data = {"errors": error_data}
+
+    elif not isinstance(error_data, dict):
+        error_data = {"detail": str(error_data)}
+
+    response.data = {
+        "status": "error",
+        "data": error_data,
+        "message": message,
+    }
 
     return response
