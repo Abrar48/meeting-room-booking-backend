@@ -19,7 +19,7 @@ urlpatterns = [
         name="booking-cancel",
     ),
     path(
-        "<int:booking_id>/camcel",
+        "<int:booking_id>/cancel",
         CancelOwnPendingBookingView.as_view(),
         name="booking-cancel-no-slash",
     ),
