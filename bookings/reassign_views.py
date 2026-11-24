@@ -3,6 +3,7 @@ from rest_framework import status
 from rest_framework.views import APIView
 
 from accounts.permissions import requireAdmin
+from bookings.locks import acquire_booking_schedule_lock
 from bookings.models import Booking, BookingAuditLog
 from bookings.serializers import AdminBookingListSerializer, AdminReassignSerializer
 from bookings.services import has_overlapping_booking
@@ -21,6 +22,8 @@ class AdminReassignBookingView(APIView):
 
     @transaction.atomic
     def post(self, request, booking_id: int):
+        acquire_booking_schedule_lock()
+
         serializer = AdminReassignSerializer(data=request.data)
 
         if not serializer.is_valid():

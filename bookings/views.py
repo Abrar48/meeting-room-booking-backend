@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 
 from accounts.models import User
 from accounts.permissions import requireAdmin, requireAuth
+from bookings.locks import acquire_booking_schedule_lock
 from bookings.models import Booking, BookingAuditLog
 from bookings.serializers import (
     AdminBookingListSerializer,
@@ -428,6 +429,8 @@ class AdminApproveBookingView(APIView):
 
     @transaction.atomic
     def patch(self, request, booking_id: int):
+        acquire_booking_schedule_lock()
+
         serializer = AdminDecisionSerializer(data=request.data)
         if not serializer.is_valid():
             return api_response(
@@ -598,6 +601,8 @@ class AdminCancelBookingView(APIView):
 
     @transaction.atomic
     def patch(self, request, booking_id: int):
+        acquire_booking_schedule_lock()
+
         serializer = AdminCancelSerializer(data=request.data)
 
         if not serializer.is_valid():
