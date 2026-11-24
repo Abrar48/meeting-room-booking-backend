@@ -8,6 +8,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 
 from accounts.models import User
+from accounts.ownership import requireSameTeamOrAdmin
 from accounts.permissions import requireAdmin, requireAuth
 from bookings.locks import acquire_booking_schedule_lock
 from bookings.models import Booking, BookingAuditLog
@@ -214,6 +215,8 @@ class MyTeamRequestsView(APIView):
                 status_code=status.HTTP_403_FORBIDDEN,
             )
 
+        requireSameTeamOrAdmin(user, user.team_id)
+
         queryset = (
             Booking.objects.select_related("team", "requester")
             .filter(team=user.team)
@@ -278,6 +281,8 @@ class CancelOwnPendingBookingView(APIView):
                 data={},
                 status_code=status.HTTP_404_NOT_FOUND,
             )
+
+        requireSameTeamOrAdmin(request.user, booking.team_id)
 
         if booking.requester_id != request.user.id:
             return api_response(
