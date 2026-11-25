@@ -1,5 +1,9 @@
 from django.urls import path
 
+from accounts.admin_views import (
+    AdminTeamCreateView,
+    AdminUserManagementView,
+)
 from bookings.reassign_views import AdminReassignBookingView
 from bookings.views import (
     AdminApproveBookingView,
@@ -10,14 +14,24 @@ from bookings.views import (
 
 urlpatterns = [
     path(
-        "bookings/<int:booking_id>/admin-cancel/",
-        AdminCancelBookingView.as_view(),
-        name="admin-booking-cancel",
+        "teams/",
+        AdminTeamCreateView.as_view(),
+        name="admin-team-create",
     ),
     path(
-        "bookings/<int:booking_id>/admin-cancel",
-        AdminCancelBookingView.as_view(),
-        name="admin-booking-cancel-no-slash",
+        "teams",
+        AdminTeamCreateView.as_view(),
+        name="admin-team-create-no-slash",
+    ),
+    path(
+        "users/",
+        AdminUserManagementView.as_view(),
+        name="admin-user-management",
+    ),
+    path(
+        "users",
+        AdminUserManagementView.as_view(),
+        name="admin-user-management-no-slash",
     ),
     path(
         "bookings/",
@@ -48,6 +62,16 @@ urlpatterns = [
         "bookings/<int:booking_id>/reject",
         AdminRejectBookingView.as_view(),
         name="admin-booking-reject-no-slash",
+    ),
+    path(
+        "bookings/<int:booking_id>/admin-cancel/",
+        AdminCancelBookingView.as_view(),
+        name="admin-booking-cancel",
+    ),
+    path(
+        "bookings/<int:booking_id>/admin-cancel",
+        AdminCancelBookingView.as_view(),
+        name="admin-booking-cancel-no-slash",
     ),
     path(
         "bookings/<int:booking_id>/reassign/",
