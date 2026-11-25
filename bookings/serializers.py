@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from accounts.models import User
 from bookings.models import Booking
 
 
@@ -9,7 +10,7 @@ class PublicScheduleBookingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Booking
-        fields = [
+        fields = (
             "id",
             "team_id",
             "team_name",
@@ -17,20 +18,38 @@ class PublicScheduleBookingSerializer(serializers.ModelSerializer):
             "start_time",
             "end_time",
             "status",
-        ]
+        )
 
 
 class AdminScheduleBookingSerializer(PublicScheduleBookingSerializer):
-    requester_id = serializers.IntegerField(source="requester.id", read_only=True)
-    requester_username = serializers.CharField(source="requester.username", read_only=True)
+    requester_id = serializers.IntegerField(
+        source="requester.id",
+        read_only=True,
+    )
+    requester_username = serializers.CharField(
+        source="requester.username",
+        read_only=True,
+    )
 
     class Meta(PublicScheduleBookingSerializer.Meta):
-        fields = PublicScheduleBookingSerializer.Meta.fields + [
+        fields = PublicScheduleBookingSerializer.Meta.fields + (
             "requester_id",
             "requester_username",
             "notes",
             "decision_note",
-        ]
+        )
+
+
+def get_schedule_serializer_class(user):
+    """Return the schedule serializer permitted for the user's role."""
+    if (
+        getattr(user, "is_authenticated", False)
+        and getattr(user, "is_active", False)
+        and getattr(user, "role", None) == User.Role.ADMIN
+    ):
+        return AdminScheduleBookingSerializer
+
+    return PublicScheduleBookingSerializer
 
 
 class BookingCreateSerializer(serializers.Serializer):
@@ -38,14 +57,24 @@ class BookingCreateSerializer(serializers.Serializer):
     purpose = serializers.CharField(max_length=255, required=True)
     start_time = serializers.DateTimeField(required=True)
     end_time = serializers.DateTimeField(required=True)
-    notes = serializers.CharField(required=False, allow_blank=True, default="")
+    notes = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+    )
 
 
 class BookingDetailSerializer(serializers.ModelSerializer):
     team_id = serializers.IntegerField(source="team.id", read_only=True)
     team_name = serializers.CharField(source="team.name", read_only=True)
-    requester_id = serializers.IntegerField(source="requester.id", read_only=True)
-    requester_username = serializers.CharField(source="requester.username", read_only=True)
+    requester_id = serializers.IntegerField(
+        source="requester.id",
+        read_only=True,
+    )
+    requester_username = serializers.CharField(
+        source="requester.username",
+        read_only=True,
+    )
 
     class Meta:
         model = Booking

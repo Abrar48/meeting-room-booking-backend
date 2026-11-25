@@ -7,7 +7,6 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 
-from accounts.models import User
 from accounts.ownership import requireSameTeamOrAdmin
 from accounts.permissions import requireAdmin, requireAuth
 from bookings.locks import acquire_booking_schedule_lock
@@ -16,10 +15,9 @@ from bookings.serializers import (
     AdminBookingListSerializer,
     AdminCancelSerializer,
     AdminDecisionSerializer,
-    AdminScheduleBookingSerializer,
     BookingCreateSerializer,
     BookingDetailSerializer,
-    PublicScheduleBookingSerializer,
+    get_schedule_serializer_class,
 )
 from bookings.services import (
     ensure_aware_utc,
@@ -97,20 +95,7 @@ class ScheduleListView(APIView):
             .order_by("start_time")
         )
 
-        active_user = (
-            request.user
-            if (request.user and request.user.is_authenticated)
-            else getattr(request, "current_user", None)
-        )
-        is_admin = bool(
-            active_user and active_user.role == User.Role.ADMIN
-        )
-
-        serializer_class = (
-            AdminScheduleBookingSerializer
-            if is_admin
-            else PublicScheduleBookingSerializer
-        )
+        serializer_class = get_schedule_serializer_class(request.user)
         serialized_bookings = serializer_class(
             confirmed_bookings,
             many=True,
